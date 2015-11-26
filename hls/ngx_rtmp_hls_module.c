@@ -871,8 +871,8 @@ ngx_rtmp_hls_get_fragment_datetime(ngx_rtmp_session_t *s, uint64_t ts)
         /* Timestamps in RTMP are given as an integer number of milliseconds
          * relative to an unspecified epoch, so we clear the last 32 bits
          * from system time, and add the timestamp from RTMP. */
-        ts_msec = s->peer_epoch * 1000;
-        ts_msec += ts;
+        ts_msec = s->epoch * 1000;
+        ts_msec += ts / 90;
         uint32_t sec = ts_msec / 1000;
         ngx_gmtime(sec, &tm);
         uint32_t msec = ts_msec - sec * 1000;
