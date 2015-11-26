@@ -871,17 +871,16 @@ ngx_rtmp_hls_get_fragment_datetime(ngx_rtmp_session_t *s, uint64_t ts)
         /* Timestamps in RTMP are given as an integer number of milliseconds
          * relative to an unspecified epoch, so we clear the last 32 bits
          * from system time, and add the timestamp from RTMP. */
-        msec = ngx_cached_time->sec * 1000 + ngx_cached_time->msec;
-        msec /= 4294967296; //2**32
-        msec *= 4294967296;
-        msec += (ts / 90);
-        ngx_gmtime(msec / 1000, &tm);
-
+        ts_msec = s->peer_epoch * 1000;
+        ts_msec += ts;
+        uint32_t sec = ts_msec / 1000
+        ngx_gmtime(sec, &tm);
+        uint32_t msec = ts_msec - sec * 1000
         datetime->data = (u_char *) ngx_pcalloc(s->connection->pool, ngx_cached_http_log_iso8601.len * sizeof(u_char));
-        (void) ngx_sprintf(datetime->data, "%4d-%02d-%02dT%02d:%02d:%02d-00:00",
+        (void) ngx_sprintf(datetime->data, "%4d-%02d-%02dT%02d:%02d:%02d.%d-00:00",
                            tm.ngx_tm_year, tm.ngx_tm_mon,
                            tm.ngx_tm_mday, tm.ngx_tm_hour,
-                           tm.ngx_tm_min, tm.ngx_tm_sec);
+                           tm.ngx_tm_min, tm.ngx_tm_sec, msec);
         datetime->len = ngx_cached_http_log_iso8601.len;
         return datetime;
 
