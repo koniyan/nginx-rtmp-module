@@ -874,14 +874,14 @@ ngx_rtmp_hls_get_fragment_datetime(ngx_rtmp_session_t *s, uint64_t ts)
         ts_msec = s->epoch * 1000;
         ts_msec += ts / 90;
         uint32_t sec = ts_msec / 1000;
-        ngx_gmtime(sec, &tm);
+        ngx_gmtime(s->epoch, &tm);
         uint32_t msec = ts_msec - sec * 1000;
-        datetime->data = (u_char *) ngx_pcalloc(s->connection->pool, ngx_cached_http_log_iso8601.len * sizeof(u_char));
+        datetime->data = (u_char *) ngx_pcalloc(s->connection->pool, (ngx_cached_http_log_iso8601.len + 3) * sizeof(u_char));
         (void) ngx_sprintf(datetime->data, "%4d-%02d-%02dT%02d:%02d:%02d.%d-00:00",
                            tm.ngx_tm_year, tm.ngx_tm_mon,
                            tm.ngx_tm_mday, tm.ngx_tm_hour,
                            tm.ngx_tm_min, tm.ngx_tm_sec, msec);
-        datetime->len = ngx_cached_http_log_iso8601.len;
+        datetime->len = ngx_cached_http_log_iso8601.len + 3;
         return datetime;
 
     case NGX_RTMP_HLS_DATETIME_SYSTEM:
