@@ -857,7 +857,7 @@ ngx_rtmp_hls_get_fragment_datetime(ngx_rtmp_session_t *s, uint64_t ts)
     ngx_rtmp_hls_app_conf_t    *hacf;
     ngx_str_t                  *datetime;
     ngx_tm_t                    tm;
-    uint64_t                    ts_msec;
+    uint64_t                    datetime_timestamp;
 
     datetime = (ngx_str_t *) ngx_pcalloc(s->connection->pool, sizeof(ngx_str_t));
     datetime->data = NULL;
@@ -868,20 +868,16 @@ ngx_rtmp_hls_get_fragment_datetime(ngx_rtmp_session_t *s, uint64_t ts)
     switch (hacf->datetime) {
 
     case NGX_RTMP_HLS_DATETIME_TIMESTAMP:
-        /* Timestamps in RTMP are given as an integer number of milliseconds
-         * relative to an unspecified epoch, so we clear the last 32 bits
-         * from system time, and add the timestamp from RTMP. */
-        ts_msec = s->epoch;
-        ts_msec += ts / 90;
-        uint32_t sec = ts_msec / 1000;
+        datetime_timestamp = ngx_rtmp_hls_get_datetime_timestamp(s, ts);
+        uint32_t sec = datetime_timestamp / 1000;
         ngx_gmtime(sec, &tm);
-        uint32_t msec = ts_msec - sec * 1000;
-        datetime->data = (u_char *) ngx_pcalloc(s->connection->pool, (ngx_cached_http_log_iso8601.len + 3) * sizeof(u_char));
+        uint32_t msec = datetime_timestamp - sec * 1000;
+        datetime->data = (u_char *) ngx_pcalloc(s->connection->pool, (ngx_cached_http_log_iso8601.len + 4) * sizeof(u_char));
         (void) ngx_sprintf(datetime->data, "%4d-%02d-%02dT%02d:%02d:%02d.%d-00:00",
                            tm.ngx_tm_year, tm.ngx_tm_mon,
                            tm.ngx_tm_mday, tm.ngx_tm_hour,
                            tm.ngx_tm_min, tm.ngx_tm_sec, msec);
-        datetime->len = ngx_cached_http_log_iso8601.len + 3;
+        datetime->len = ngx_cached_http_log_iso8601.len + 4;
         return datetime;
 
     case NGX_RTMP_HLS_DATETIME_SYSTEM:
@@ -893,6 +889,17 @@ ngx_rtmp_hls_get_fragment_datetime(ngx_rtmp_session_t *s, uint64_t ts)
     default: /* NGX_RTMP_HLS_DATETIME_NONE */
         return datetime;
     }
+}
+
+static uint64_t
+ngx_rtmp_hls_get_datetime_timestamp(ngx_rtmp_session_t *s, uint64_t ts)
+{
+    uint64_t datetime_timestamp;
+
+    datetime_timestamp = s->epoch;
+    datetime_timestamp += ts / 90;
+
+    return datetime_timestamp;
 }
 
 
@@ -933,6 +940,7 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
     ngx_rtmp_codec_ctx_t     *codec_ctx;
     ngx_rtmp_hls_frag_t      *f;
     ngx_rtmp_hls_app_conf_t  *hacf;
+    uint64_t                  datetime_timestamp;
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_hls_module);
 
@@ -1029,8 +1037,9 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
 
     codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
 
+    datetime_timestamp = ngx_rtmp_hls_get_datetime_timestamp(s, ts);
     if (ngx_rtmp_mpegts_open_file(&ctx->file, ctx->stream.data,
-                                  s->connection->log, &codec_ctx->audio_codec_id)
+                                  s->connection->log, &codec_ctx->audio_codec_id, datetime_timestamp)
         != NGX_OK)
     {
         return NGX_ERROR;
